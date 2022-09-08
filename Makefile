@@ -48,8 +48,6 @@ CROSS ="--host=$(PREFIX)"
 ARCH =$(shell $(PREFIX)-gcc- -dumpmachine | cut -d '-' -f l)
 endif
 
-include $(S_DIR)/functions.mk
-
 $(DIR_NAME)/$(FILE_NAME).gz: bb_build-$(BBVER)$(EXTRANAME)/_install/etc  bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo
 ifneq ("$(wildcard bb_build-$(BBVER)$(EXTRANAME)/_install/lib64)","")
 	@echo "	lib64 is there: copying it"
@@ -62,120 +60,7 @@ endif
 	find . | cpio -o -H newc | gzip > $(DIR_NAME)/$(FILE_NAME).gz
 
 bb_build-$(BBVER)$(EXTRANAME)/_install/etc: bb_build-$(BBVER)$(EXTRANAME)/_install
-	@echo "	Building root"
-	cp -a $(S_DIR)/etc bb_build-$(BBVER)$(EXTRANAME)/_install/etc 
-	cp $(S_DIR)/sbin/* bb_build-$(BBVER)$(EXTRANAME)/_install/sbin
-	rm -f bb_build-$(BBVER)$(EXTRANAME)/_install/linuxrc
-	rm -f bb_build-$(BBVER)$(EXTRANAME)/_install/init
-	ln -s /bin/busybox bb_build-$(BBVER)$(EXTRANAME)/_install/init
-
-	mkdir -p bb_build-$(BBVER)$(EXTRANAME)/_install/proc
-	mkdir -p bb_build-$(BBVER)$(EXTRANAME)/_install/lib
-ifeq (x$(ARCH),xmusl)
-	@echo -n "	get musl in root... "
-	cp -a $(MUSL)/$(MARCH)/lib/ld-musl-x86_64.so.l bb_build-$(BBVER)$(EXTRANAME)/_install/lib 
-	cp $(MUSL)/$(MARCH)/lib/libc.so bb_build-$(BBVER)$(EXTRANAME)/_install/lib
-else
-	mkdir -p bb_build-$(BBVER)$(EXTRANAME)/_install/lib64
-	@echo "	get exec libs root $(GLIBC_LIB)"
-
-	$(eval FILES=$(shell readelf -d bb_build-$(BBVER)$(EXTRANAME)/_install/bin/busybox | grep "Libreria condivisa" | cut -d '[' -f 2 | cut -d ']' -f 1))
-	@echo $(FILES)
-	$(foreach F,$(FILES),\
-	$(eval F=$(shell "$(MCROSS)"$(CC) -print-file-name=$(F))) \
-	$(call search_file,"$(L)",$(shell "$(MCROSS)"$(CC) -print-file-name=$(F))) \
-	$(if [$(found) = "NO"] , $(eval L="$(L) $(shell "$(MCROSS)"$(CC) -print-file-name=$(F))")  $(eval L1=$(call do_ldd,$(shell "$(MCROSS)"$(CC) -print-file-name=$(F)),"$(L)"))  $(eval L="$(L1)") )\
-	)
-
-	$(foreach K,$(L),$(eval tLIBS+= $(basename $(K))))
-	$(eval LIBS=$(shell $(tLIBS) | grep -v vdso | grep -v ld-linux))
-	@echo LIBS is $(LIBS)
-
-	$(eval FILES=$(shell readelf -d bb_build-$(BBVER)$(EXTRANAME)/_install/bin/busybox | grep "Libreria condivisa" | cut -d '[' -f 2 | cut -d ']' -f 1))	
-	@echo $(FILES)
-	$(foreach F,$(FILES),\
-	$(eval F=$("$(MCROSS)"$(CC) -print-file-name=$(F))); \
-	$(call search_file,"$(L)",$(F)); \
-	if [$(found) = "NO"] then $(eval L="$(L) $(F)") ; $(eval L1="") ; $(eval L="$(L1)") fi ;\
-	)
-
-	$(foreach K,$(L),$(eval tLD_LINUXS+= $(K)))	
-	$(eval LD_LINUX=$(shell $(tLD_LINUX) | grep ld-linux))
-	@echo LD_LINUX is $(LD_LINUX)
-
-ifeq (x$(GLIBC_LIB),x)
-	$(eval FILES=$(shell readelf -d bb_build-$(BBVER)$(EXTRANAME)/_install/bin/busybox | grep "Libreria condivisa" | cut -d '[' -f 2 | cut -d ']' -f 1))
-	$(foreach F,$(FILES),\
-	$(eval F=$("$(MCROSS)"$(CC) -print-file-name=$(F))); \
-	$(call search_file,"$(L)",$(F)); \
-	if [$(found) = "NO"] then $(eval L="$(L) $(F)") ; $(eval L1="") ; $(eval L="$(L1)") fi ;\
-	)
-
-	$(foreach K,$(L),$(eval tLIBDIR+= $(K)))	
-	$(eval LIBDIR =$(shell $(tLIBDIR) | grep libc.s | xargs dirname))
-	$(eval LDLINUXDIR=$(shell dirname $($(LD_LINUX))))
-else
-	$(eval LIBDIR=$(GLIBC_LIB)) 
-	$(eval LDLINUXDIR=$(GLIBC_LIB))
-endif
-	@echo LIBDIR is $(LIBDIR)
-	@echo LDLINUXDIR is $(LDLINUXDIR)
-ifneq (x$(LIBS),x) 
-	$(foreach K,$(LIBS), \
-	$(eval DIR=lib); \
-	$(call fetch_lib,$(DIR),$(K),bb_build-$(BBVER)$(EXTRANAME)/_install,$(LIBDIR)); \
-	)
-endif
-
-	mkdir -p bb_build-$(BBVER)$(EXTRANAME)/_install/$(shell dirname $($(LD_LINUX)))
-	$(eval LIB=$(shell find -H $(LDLINUXDIR) -name $(basename $(LD_LINUX)) | head -n 1))
-ifneq ("x$(LIB)","x")
-	cp $(LIB) bb_build-$(BBVER)$(EXTRANAME)/_install/lib
-else
-	@echo Fetch Lib: $(basename $(LD_LINUX)) not found in $(LDLINUXDIR) - doing nothing
-endif
-
-	@echo "	Fetching standard libraries"
-ifeq (x$(GLIBC_LIB),x)
-	$(eval FILES=$(shell readelf -d bb_build-$(BBVER)$(EXTRANAME)/_install/bin/busybox | grep "Libreria condivisa" | cut -d '[' -f 2 | cut -d ']' -f 1))
-	$(foreach F,$(FILES),\
-	$(eval F=$("$(MCROSS)"$(CC) -print-file-name=$(F))); \
-	$(call search_file,"$(L)",$(F)); \
-	if [$(found) = "NO"] then $(eval L="$(L) $(F)") ; $(eval L1="") ; $(eval L="$(L1)") fi ;\
-	)
-
-	$(foreach K,$(L),$(eval tLIBDIR+= $(K)))
-	$(eval LIBDIR=$(shell $(tLIBDIR) | grep libc.s | xargs dirname))
-else
-	$(eval LIBDIR=$(GLIBC_LIB))
-endif
-	@echo LIBDIR is $(LIBDIR)
-	$(eval LIB=$(shell find -H $(LIBDIR) -name libpthread.so.0 | head -n 1))
-ifneq ("x$(LIB)","x")
-	cp $(LIB) bb_build-$(BBVER)$(EXTRANAME)/_install/lib/
-else
-	@echo Fetch Lib: libpthread.so.0 not found in $(LIBDIR) - doing nothing
-endif
-	$(eval LIB=$(shell find -H $(LIBDIR) -name librt.so.1 | head -n 1))
-ifneq ("x$(LIB)","x")
-	cp $(LIB) bb_build-$(BBVER)$(EXTRANAME)/_install/lib/
-else
-	@echo Fetch Lib: librt.so.1 not found in $(LIBDIR) - doing nothing
-endif
-	$(eval LIB=$(shell find -H $(LIBDIR) -name libdl.so.2 | head -n 1))
-ifneq ("x$(LIB)","x")
-	cp $(LIB) bb_build-$(BBVER)$(EXTRANAME)/_install/lib/
-else
-	@echo Fetch Lib: libdl.so.2 not found in $(LIBDIR) - doing nothing
-endif
-	$(eval LIBGCCDIR=$(shell dirname $$("$(MCROSS)"$(CC) -print-libgcc-file-name)))
-	@echo LIBGCCDIR is $(LIBGCCDIR)
-ifneq ("$(wildcard $(LIBGCCDIR)/libgcc_s.so.1)","")
-	cp $(LIBGCCDIR)/libgcc_s.so.1 bb_build-$(BBVER)$(EXTRANAME)/_install/lib/libgcc_s.so.1
-else
-	cp $(LIBGCCDIR)/libgcc_s.so bb_build-$(BBVER)$(EXTRANAME)/_install/lib/libgcc_s.so.1	
-endif
-endif
+	cd bb_build-$(BBVER)$(EXTRANAME) && $(MAKE) -f ../../Progetto/buildingroot.mk
 	@echo "	done!"
 
 bb_build-$(BBVER)$(EXTRANAME)/_install: bb_build-$(BBVER)$(EXTRANAME)
@@ -221,98 +106,8 @@ else
 endif	
 
 bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo: sudo_build-$(SUDOVER)$(EXTRANAME) bb_build-$(BBVER)$(EXTRANAME)/_install/etc
-	@echo "	Installing sudo"
-	cp sudo_build-$(SUDOVER)$(EXTRANAME)/src/sudo bb_build-$(BBVER)$(EXTRANAME)/_install/bin
-	"$(MCROSS)"strip bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo
-ifeq (x$(GLIBC_LIB),x)
-	$(eval FILES=$(shell readelf -d bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo | grep "Libreria condivisa" | cut -d '[' -f 2 | cut -d ']' -f 1))
-ifneq (x$(FILES),x)
-	for F in $(FILES) ; do \
-	$(eval F=$("$(MCROSS)"$(CC) -print-file-name=$(F))); \
-	$(call search_file,"$(L)",$(F)); \
-	if [$(found) = "NO"] then $(eval L="$(L) $(F)") ; $(eval L1=$(call do_ldd,$(F),"$(L)")) ; $(eval L="$(L1)") fi ;\
-	done;
-endif
-ifneq (x$(L),x)	
-	$(foreach K,$(L),$(eval tLIBDIR+= $(K)))
-endif
-	$(eval LIBDIR = $(shell $(tLIBDIR) | grep libc.s | xargs dirname))
-else
-	$(eval LIBDIR = $(GLIBC_LIB))
-endif	
-	@echo LIBDIR is $(LIBDIR)
-ifneq (x$(ARCH),xmusl)
-	@echo get_exec_libs_root bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo , bb_build-$(BBVER)$(EXTRANAME)/_install , $(LIBDIR)
-	
-	$(eval FILES=$(shell readelf -d bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo | grep "Libreria condivisa" | cut -d '[' -f 2 | cut -d ']' -f 1))
-	$(foreach F,$(FILES),\
-	$(eval F=$("$(MCROSS)"$(CC) -print-file-name=$(F))); \
-	$(call search_file,"$(L)",$(F)); \
-	if [$(found) = "NO"] then $(eval L="$(L) $(F)") ; $(eval L1="") ; $(eval L="$(L1)") fi ;\
-	)
-
-	$(foreach K,$(L),$(eval tLIBS+= $(basename $(K))))
-	$(eval LIBS=$(shell $(tLIBS) | grep -v vdso | grep -v ld-linux))
-	@echo LIBS is $(LIBS)
-
-	$(eval FILES=$(shell readelf -d bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo | grep "Libreria condivisa" | cut -d '[' -f 2 | cut -d ']' -f 1))
-	$(foreach F,$(FILES),\
-	$(eval F=$("$(MCROSS)"$(CC) -print-file-name=$(F))); \
-	$(call search_file,"$(L)",$(F)); \
-	if [$(found) = "NO"] then $(eval L="$(L) $(F)") ; $(eval L1="") ; $(eval L="$(L1)") fi ;\
-	)
-
-	$(foreach K,$(L),$(eval tLD_LINUX+= $(K)))
-	$(eval LD_LINUX=$(shell $(tLD_LINUX) | grep ld-linux))
-	@echo LD_LINUX is $(LD_LINUX)
-
-ifeq (x$(LIBDIR),x)
-	$(eval FILES=$(shell readelf -d bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo | grep "Libreria condivisa" | cut -d '[' -f 2 | cut -d ']' -f 1))
-	$(foreach F,$(FILES),\
-	$(eval F=$("$(MCROSS)"$(CC) -print-file-name=$(F))); \
-	$(call search_file,"$(L)",$(F)); \
-	if [$(found) = "NO"] then $(eval L="$(L) $(F)") ; $(eval L1="") ; $(eval L="$(L1)") fi ;\
-	)
-
-	$(foreach K,$(L),$(eval tLIBDIR+= $(K)))
-	$(eval LIBDIR =$(shell $(tLIBDIR) | grep libc.s | xargs dirname))
-
-	$(eval LDLINUXDIR=$(shell dirname $$($(LD_LINUX))))
-else
-	$(eval LIBDIR=$(LIBDIR)) 
-	$(eval LDLINUXDIR=$(LIBDIR))
-endif
-	@echo LIBDIR is $(LIBDIR)
-	@echo LDLINUXDIR is $(LDLINUXDIR)
-
-	$(foreach K,$(LIBS), \
-	$(eval DIR=lib); \
-	$(call fetch_lib,$(DIR),$(K),bb_build-$(BBVER)$(EXTRANAME)/_install,$(LIBDIR)); \
-	)
-
-	mkdir -p bb_build-$(BBVER)$(EXTRANAME)/_install/$(shell dirname $$($(LD_LINUX)))
-	$(eval LIB=$(shell find -H $(LDLINUXDIR) -name $(basename $(LD_LINUX)) | head -n 1))
-ifneq ("x$(LIB)","x")
-	cp $(LIB) bb_build-$(BBVER)$(EXTRANAME)/_install/lib
-else
-	@echo Fetch Lib: $(basename $(LD_LINUX)) not found in $(LDLINUXDIR) - doing nothing
-endif
-
-	@echo "	fetching libs... "
-	$(eval LIB=$(shell find -H $(LIBDIR) -name libnss_compat.so.* | head -n 1))
-ifneq (x$(LIB),x)
-	cp $(LIB) bb_build-$(BBVER)$(EXTRANAME)/_install/lib/
-else
-	@echo Fetch Lib: libnss_compat.so.* not found in $(LIBDIR)
-endif
-	$(eval LIB=$(shell find -H $(LIBDIR) -name libnss_files.so.* | head -n 1))
-ifneq (x$(LIB),x)
-	cp $(LIB) bb_build-$(BBVER)$(EXTRANAME)/_install/lib/
-else
-	@echo Fetch Lib: libnss_files.so.* not found in $(LIBDIR)
-endif
-	@echo "done!"
-endif
+	cd sudo_build-$(SUDOVER)$(EXTRANAME) && $(MAKE) -f ../../Progetto/installsudo.mk BBBUILD="../bb_build-$(BBVER)$(EXTRANAME)"
+	@echo "	done!"
 
 sudo_build-$(SUDOVER)$(EXTRANAME): sudo-$(SUDOVER) #init_config
 	@echo Building sudo
