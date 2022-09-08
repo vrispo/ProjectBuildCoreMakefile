@@ -1,0 +1,11 @@
+diff -urp busybox-1.20.2-orig/include/libbb.h busybox-1.20.2/include/libbb.h
+--- busybox-1.20.2-orig/include/libbb.h	2012-07-02 16:08:25.000000000 +0200
++++ busybox-1.20.2/include/libbb.h	2013-05-22 13:20:35.000000000 +0200
+@@ -43,6 +43,7 @@
+ #include <sys/socket.h>
+ #include <sys/stat.h>
+ #include <sys/time.h>
++#include <sys/resource.h>
+ #include <sys/types.h>
+ #ifndef major
+ # include <sys/sysmacros.h>

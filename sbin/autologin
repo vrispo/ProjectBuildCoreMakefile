@@ -1,0 +1,4 @@
+#!/bin/sh
+cat /etc/issue
+USER=$(cat /etc/sysconfig/user)
+exec login -f $USER

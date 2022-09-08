@@ -1,0 +1,160 @@
+#!/bin/sh
+# RC Script for Tiny Core Linux
+# (c) Robert Shingledecker 2004-2012
+# Several modifications for speed by Curaga
+
+# ANSI COLORS
+GREEN="$(echo -e '\033[1;32m')"
+YELLOW="$(echo -e '\033[1;33m')"
+BLUE="$(echo -e '\033[1;34m')"
+NORMAL="$(echo -e '\033[0;39m')"
+
+LANGUAGE="C"
+SLEEPTIME=5
+VERSION=0.1
+ISSUE="Sfingi VR"
+HOSTNAME=sfingi_vr
+USER="myself"
+PASSWD="sfingi"
+
+
+add_user(){
+  ID=$(echo $(ls -ld /etc) | cut -d ' ' -f 3)
+  echo -n "${BLUE}Adding user ${YELLOW} $1 ($ID) ${NORMAL}"
+  adduser -s /bin/sh -G staff -u $ID -D "$USER" > /dev/null
+  echo "$1":$2 | /sbin/chpasswd -m > /dev/null
+  echo -e "$1\tALL=NOPASSWD: ALL" >> /etc/sudoers
+
+  chown -Rh "$USER".staff /home/"$USER"
+  chmod g+s /home/"$USER"
+
+  echo "${GREEN}Done.${NORMAL}"
+}
+
+blacklist_modules() {
+  if [ -n "$1" ];
+   then
+    mkdir -p /etc/modprobe.d
+    for i in $1;
+     do
+      echo "$i" | tr ',' '\n' | while read j ;
+       do
+        echo "blacklist $j" >> /etc/modprobe.d/blacklist.conf
+       done
+     done
+   fi
+}
+
+start_mdev() {
+  echo -n "${BLUE}Starting mdev...${NORMAL}"
+  echo /sbin/mdev_wrap.sh > /proc/sys/kernel/hotplug
+  mdev -s
+  wait $!
+  echo "${GREEN}Done.${NORMAL}"
+
+  echo -n "${BLUE}Loading kernel modules...${NORMAL}"
+  ALIASES=$(find /sys/devices -name modalias)
+  set -f; IFS='
+'
+  for A in $ALIASES
+   do
+    MOD=$(grep -v cpu "$A")
+    if [ x$MOD != x ]
+     then
+      echo -n "${YELLOW} $MOD... ${NORMAL}"
+      /sbin/modprobe -- $MOD 2>/dev/null
+     fi
+   done
+  set +f; unset IFS
+  echo "${GREEN}Done.${NORMAL}"
+}
+
+setup_base_fs() {
+  # First, mount /proc (otherwise "mount -o remount..." might generate some (harmless?) errors, trying to access /proc/mounts
+  /bin/mount -t proc proc /proc
+
+  # Then, remount the rootfs read-write
+  /bin/mount -o remount,rw /
+
+  mkdir /sys
+  mkdir /tmp
+  mkdir /home
+  mkdir -p /dev/pts
+  mkdir -p /dev/shm
+  mkdir -p /var/run
+  mkdir -p /var/log
+  mkdir -p /var/tmp
+  chmod a+rw /tmp
+  echo $ISSUE > /etc/issue
+
+  ln -s /proc/mounts /etc/mtab
+  /bin/mount -a
+}
+
+do_net_config() {
+  /bin/hostname $HOSTNAME
+
+  /sbin/ifconfig lo 127.0.0.1 up
+  /sbin/route add 127.0.0.1 lo
+}
+
+set_perms() {
+  chown root:root /bin/busybox /bin/sudo /etc/sudoers
+  chmod u+s  /bin/busybox /bin/sudo
+  chmod a+rw /dev/null
+  chmod a+rw /dev/zero
+}
+
+### END functions
+
+# Main
+clear
+echo "${BLUE}Booting ${YELLOW}Core $VERSION ${NORMAL}"
+
+setup_base_fs
+
+KERNEL="$(uname -r)"
+echo "${BLUE}Linux Kernel Version ${YELLOW}$KERNEL${GREEN}.${NORMAL}"
+export PATH=/usr/local/sbin:/usr/local/bin:"$PATH"
+
+echo -n "${BLUE}Parsing the kernel command line...${NORMAL}"
+CMDLINE=$(cat /proc/cmdline)
+for i in $CMDLINE
+ do
+  case $i in
+    *=*)
+      case $i in
+        waitusb*)    WAITUSB=${i#*=} ;;
+        user*)       USER=${i#*=} ;;
+        host*)       HOSTNAME=${i#*=} ;;
+        sleeptime*)  SLEEPTIME=${i#*=} ;;
+        blacklist* ) BLACKLIST="$BLACKLIST ${i#*=}" ;;
+      esac ;;
+  esac
+ done
+echo "${GREEN}Done.${NORMAL}"
+
+blacklist_modules "$BLACKLIST"
+start_mdev
+
+[ -n "$WAITUSB" ] && ( sleep "$WAITUSB" )
+
+modprobe loop 2>/dev/null
+
+[ -f /etc/sysconfig ] || mkdir /etc/sysconfig
+echo "LANG=$LANGUAGE" > /etc/sysconfig/language
+
+do_net_config
+set_perms
+
+/sbin/ldconfig 2>/dev/null
+
+add_user $USER $PASSWD
+mkdir -p /home/"$USER"
+echo "$USER" > /etc/sysconfig/user
+
+echo -n "${BLUE}Waiting $SLEEPTIME seconds...${NORMAL}"
+sleep $SLEEPTIME
+echo "${GREEN} Done.${NORMAL}"
+[ -x /etc/init.d/rc1 ] && /etc/init.d/rc1
+
