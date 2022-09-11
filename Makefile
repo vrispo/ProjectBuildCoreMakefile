@@ -6,7 +6,7 @@ SUDO_PATH = dist#sudover x.y.z se y = 8 sudo_path = dist else =dist/old
 FILE_NAME ?= minimal_core
 DIR_NAME = $(shell pwd)
 S_DIR ?= ../Progetto
-CONFIG_FILE = $(S_DIR)/Configs/config-busybox-2
+CONFIG_FILE := $(S_DIR)/Configs/config-busybox-2
 CC = gcc
 
 CPUS = $(shell grep processor /proc/cpuinfo | wc -l)
@@ -48,6 +48,8 @@ CROSS ="--host=$(PREFIX)"
 ARCH =$(shell $(PREFIX)-gcc- -dumpmachine | cut -d '-' -f l)
 endif
 
+export CC
+
 $(DIR_NAME)/$(FILE_NAME).gz: bb_build-$(BBVER)$(EXTRANAME)/_install/etc  bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo
 ifneq ("$(wildcard bb_build-$(BBVER)$(EXTRANAME)/_install/lib64)","")
 	@echo "	lib64 is there: copying it"
@@ -61,7 +63,7 @@ endif
 
 bb_build-$(BBVER)$(EXTRANAME)/_install/etc: bb_build-$(BBVER)$(EXTRANAME)/_install
 	cd bb_build-$(BBVER)$(EXTRANAME) && $(MAKE) -f ../../Progetto/buildingroot.mk
-	@echo "	done!"
+	@echo "	done buildingroot!"
 
 bb_build-$(BBVER)$(EXTRANAME)/_install: bb_build-$(BBVER)$(EXTRANAME)
 	@echo "	Installing BusyBox"
