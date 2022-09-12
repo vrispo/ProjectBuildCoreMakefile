@@ -1,15 +1,5 @@
 DIR = ../../Progetto
 
-define fetch_lib
-$(eval D:=$(4))
-$(eval LIB:=$(shell find -H $(D) -name $(2) | head -n 1))
-$(if $(filter $(LIB),""),$(eval fetch_res := Fetch Lib: $(2) not found in $(D) - doing nothing),$(shell cp $(LIB) $(3)/$(1)))
-endef
-
-define find_lib_dir
-$(eval D=$(shell $(call do_ldd2,$(1)) | grep libc.s | xargs dirname))
-endef
-
 define search_file
 $(eval found:="NO")
 $(foreach E,$(1), $(if $(filter x$(E),x$(2)),$(eval found:="YES")))
@@ -24,42 +14,23 @@ $(if $(filter $(found),"NO"),$(eval L:=$(L) $(shell "$(MCROSS)"$(CC) -print-file
 )
 endef
 
-#define do_ldd1
-#	$(eval LIBS_1=$(call do_ldd,$(1)))
-#	for K in $(LIBS_1) ; do \
-#	echo $(basename $(K)) ; done
-#endef
-
-define do_ldd2
-	$(eval LIBS=$(call do_ldd,$(1)))
-	$(foreach K,$(LIBS),$(shell echo $(K)))
-endef
-
-#define get_exec_libs_root
-#	$(eval LIBS_1=$(call do_ldd,$(1)))
-#	for K in $(LIBS_1) ; do \
-#	$(eval res += $(basename $(K))) ; done
-#	$(eval LIBS=$(shell echo $(res) | grep -v vdso | grep -v ld-linux))
-#	@echo done
-#endef
-
-buildingroot:
+buildingroot: 
 	@echo "	Building root"
 	@echo CC is $(CC)
 	cp -a $(DIR)/etc _install/etc
 	cp $(DIR)/sbin/* _install/sbin
+	rm -f _install/linuxrc
 	rm -f _install/init
 	ln -s /bin/busybox _install/init 
 
 	mkdir -p _install/proc
-
-	mkdir -p _install/lib 
+	rm -f _install/lib && mkdir -p _install/lib
 ifeq (x$(ARCH) , xmusl)
 	@echo -n "	get musl in root... "
 	cp -a $(MUSL)/$(MARCH)/lib/ld-musl-x86_64.so.1 _install/lib
 	cp $(MUSL)/$(MARCH)/lib/libc.so _install/lib
 else
-	mkdir -p _install/lib64
+	find _install  -maxdepth 0 -type f -delete -name lib64 && mkdir -p _install/lib64
 	@echo "	get exec libs root $(GLIBC_LIB)"
 #$(call get_exec_libs_root,_install/bin/busybox,_install,$(GLIBC_LIB))
 	$(call do_ldd,_install/bin/busybox)

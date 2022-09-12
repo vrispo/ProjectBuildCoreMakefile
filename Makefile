@@ -4,7 +4,7 @@ KVER = 4.28.16
 SUDOVER = 1.8.26
 SUDO_PATH = dist#sudover x.y.z se y = 8 sudo_path = dist else =dist/old
 FILE_NAME ?= minimal_core
-DIR_NAME = $(shell pwd)
+DIR_NAME := $(shell pwd)
 S_DIR ?= ../Progetto
 CONFIG_FILE := $(S_DIR)/Configs/config-busybox-2
 CC = gcc
@@ -48,20 +48,16 @@ CROSS ="--host=$(PREFIX)"
 ARCH =$(shell $(PREFIX)-gcc- -dumpmachine | cut -d '-' -f l)
 endif
 
-export CC
+export CC , EXTRANAME , DIR_NAME , MCROSS , SUDOVER , BBVER
 
-$(DIR_NAME)/$(FILE_NAME).gz: bb_build-$(BBVER)$(EXTRANAME)/_install/etc  bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo
-ifneq ("$(wildcard bb_build-$(BBVER)$(EXTRANAME)/_install/lib64)","")
-	@echo "	lib64 is there: copying it"
-	$(eval FILES=$(shell ls bb_build-$(BBVER)$(EXTRANAME)/_install/lib64))
-	$(foreach F,$(FILES),$(shell cp -a bb_build-$(BBVER)$(EXTRANAME)/_install/lib64/$(F) bb_build-$(BBVER)$(EXTRANAME)/_install/lib))
-	rm -rf bb_build-$(BBVER)$(EXTRANAME)/_install/lib64; ln -s bb_build-$(BBVER)$(EXTRANAME)/_install/lib bb_build-$(BBVER)$(EXTRANAME)/_install/lib64
-endif
-	@echo -n "MkInitRAMFs bb_build-$(BBVER)$(EXTRANAME)/_install/etc $(DIR_NAME)/$(FILE_NAME)"
+$(DIR_NAME)/$(FILE_NAME).gz: bb_build-$(BBVER)$(EXTRANAME)/_install/lib  bb_build-$(BBVER)$(EXTRANAME)/_install/lib/libnss_*
+	cd bb_build-$(BBVER)$(EXTRANAME)/_install && $(MAKE) -f ../../../Progetto/finalfixups.mk
+	@echo "	done final fixups!"
+	@echo -n "MkInitRAMFs bb_build-$(BBVER)$(EXTRANAME)/_install $(DIR_NAME)/$(FILE_NAME)"
 	cd bb_build-$(BBVER)$(EXTRANAME)/_install ; \
 	find . | cpio -o -H newc | gzip > $(DIR_NAME)/$(FILE_NAME).gz
 
-bb_build-$(BBVER)$(EXTRANAME)/_install/etc: bb_build-$(BBVER)$(EXTRANAME)/_install
+bb_build-$(BBVER)$(EXTRANAME)/_install/lib: bb_build-$(BBVER)$(EXTRANAME)/_install
 	cd bb_build-$(BBVER)$(EXTRANAME) && $(MAKE) -f ../../Progetto/buildingroot.mk
 	@echo "	done buildingroot!"
 
@@ -72,7 +68,7 @@ bb_build-$(BBVER)$(EXTRANAME)/_install: bb_build-$(BBVER)$(EXTRANAME)
 	make install V=1     CC="$(MCROSS)$(CC)" CROSS_COMPILE=$(MCROSS)                     > install_bb.log 2> install_bb.err
 	@echo "	done!"
 
-bb_build-$(BBVER)$(EXTRANAME): busybox-$(BBVER) #init_config
+bb_build-$(BBVER)$(EXTRANAME): busybox-$(BBVER) 
 	@echo "	Building BusyBox"
 	$(eval BUILDDIR := bb_build-$(BBVER)$(EXTRANAME))
 	mkdir -p $(BUILDDIR)
@@ -107,7 +103,7 @@ else
 	@echo "	done!"
 endif	
 
-bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo: sudo_build-$(SUDOVER)$(EXTRANAME) bb_build-$(BBVER)$(EXTRANAME)/_install/etc
+bb_build-$(BBVER)$(EXTRANAME)/_install/lib/libnss_*: sudo_build-$(SUDOVER)$(EXTRANAME) bb_build-$(BBVER)$(EXTRANAME)/_install/lib
 	cd sudo_build-$(SUDOVER)$(EXTRANAME) && $(MAKE) -f ../../Progetto/installsudo.mk BBBUILD="../bb_build-$(BBVER)$(EXTRANAME)"
 	@echo "	done!"
 

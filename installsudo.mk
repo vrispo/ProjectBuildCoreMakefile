@@ -1,81 +1,83 @@
-define fetch_lib
-	$(eval D=$(4))
-	$(eval LIB=$(shell find -H $(D) -name $(2) | head -n 1))
-ifneq (x$(LIB),x)
-	cp $(LIB) $(3)/$(1)
-else
-	echo Fetch Lib: $(2) not found in $(D) - doing nothing
-endif
-endef
-
-define find_lib_dir
-	$(eval D=$(shell $(call do_ldd2,$(1)) | grep libc.s | xargs dirname))
-	echo $(D)
-endef
+DIR = ../../Progetto
 
 define search_file
-	$(eval found="NO")
-	$(foreach E,$(1), $(if $(filter x$(E),x$(2)),$(eval found="YES")))
-	@echo $(found)
+$(eval found:="NO")
+$(foreach E,$(1), $(if $(filter x$(E),x$(2)),$(eval found:="YES")))
 endef
 
 define do_ldd
-	$(eval L=$(2))
-	$(eval FILES=$(shell readelf -d $(1) | grep "Libreria condivisa" | cut -d '[' -f 2 | cut -d ']' -f 1))
-	@echo $(FILES)
-endef
-
-define do_ldd1
-	$(eval LIBS=$(call do_ldd,$(1)))
-	$(foreach K,$(LIBS),$(shell echo $(basename $(K))))
-endef
-
-define do_ldd2
-	$(eval LIBS=$(call do_ldd,$(1)))
-	$(foreach K,$(LIBS),$(shell echo $(K)))
-endef
-
-define get_exec_libs_root
-	$(eval LIBS=$(shell $(call do_ldd1,$(1)) | grep -v vdso | grep -v ld-linux))
-	$(eval LD_LINUX=$(shell $(call do_ldd2,$(1)) | grep ld-linux))
-ifeq (x$(3),x)
-	$(eval LIBDIR=$(call find_lib_dir,$(1)))
-	$(eval LDLINUXDIR=$(shell dirname $$($(LD_LINUX))))
-else
-	$(eval LIBDIR=$(3))
-	$(eval LDLINUXDIR=$(3))
-endif
-
-	$(foreach L,$(LIBS),$(call fetch_lib,lib,$(L),$(2),$(LIBDIR)))
-	mkdir -p $(2)/$(shell dirname $$($(LD_LINUX)))
-	$(call fetch_lib,/lib,$(basename $(LD_LINUX)),$(2),$(LDLINUXDIR)
+$(eval L:=$(2))
+$(eval FILES := $(shell readelf -d $(1) | grep "Libreria condivisa" | cut -d '[' -f 2 | cut -d ']' -f 1))
+$(foreach F, $(FILES),\
+$(call search_file,$(L),$(shell "$(MCROSS)"$(CC) -print-file-name=$(F))) \
+$(if $(filter $(found),"NO"),$(eval L:=$(L) $(shell "$(MCROSS)"$(CC) -print-file-name=$(F))) $(call do_ldd,$(shell "$(MCROSS)"$(CC) -print-file-name=$(F)),$(L)) ) \
+)
 endef
 
 installsudo:
 	@echo "	Installing sudo"
-	cp $(shell pwd)/src/sudo $(BBBUILD)/_install/bin
-	"$(MCROSS)"strip $(BBBUILD)/_install/bin/sudo
+	cp src/sudo $(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/bin
+	$(shell "$(MCROSS)"strip $(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo)
+
 ifeq (x$(GLIBC_LIB),x)
-	$(eval LIBDIR=$(call find_lib_dir,$(BBBUILD)/_install/bin/sudo))
+	$(call do_ldd,$(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo)
+	@echo result of do_ldd is $(L)
+	$(eval res:="")
+	$(foreach K,$(L),$(eval res += $(K)))
+	@echo result of foreach is $(res)
+	$(eval LIBDIR:=$(shell echo $(res) | grep libc.s | xargs dirname | xargs -n1 | sort -u | xargs))
+	@echo res of find lib dir is $(LIBDIR)
 else
-	$(eval LIBDIR = $(GLIBC_LIB))
-endif	
-	@echo LIBDIR is $(LIBDIR)
+	$(eval LIBDIR:=$(GLIBC_LIB))
+endif
+
 ifneq (x$(ARCH),xmusl)
-	@echo get_exec_libs_root bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo , bb_build-$(BBVER)$(EXTRANAME)/_install , $(LIBDIR)
-	$(call get_exec_libs_root,$(BBBUILD)/_install/bin/sudo,$(BBBUILD)/_install,$(LIBDIR))
+	@echo "	get exec libs root $(GLIBC_LIB)"
+#$(call get_exec_libs_root,$(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo,$(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install,$(LIBDIR))
+	$(call do_ldd,$(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo)
+	@echo result of do_ldd is $(L)
+	$(eval res:="")
+	$(foreach K,$(L),$(eval res += $(shell basename $(K))))
+	@echo result of foreach is $(res)
+	$(foreach K,$(res), $(eval LIBS += $(shell echo $(K) | grep -v vdso | grep -v ld-linux)))
+	@echo libs is $(LIBS)
+
+#$(call do_ldd,_install/bin/busybox) il risultato è sempre in L che non è più stata modificata
+	@echo result of do_ldd is $(L)
+	$(eval res:="")
+	$(foreach K,$(L),$(eval res += $(K)))
+	@echo result of foreach is $(res)
+	$(foreach K,$(res), $(eval LD_LINUX += $(shell echo $(K) | grep ld-linux)))
+	@echo ld_linux is $(LD_LINUX)
+ifeq (x$(LIBDIR),x)
+#$(eval D=$(shell $(call do_ldd2,$(1)) | grep libc.s | xargs dirname))
+#the result of ldd2 is in res
+
+	$(eval LIBDIR:=$(shell echo $(res) | grep libc.s | xargs dirname | xargs -n1 | sort -u | xargs))
+	@echo res of find lib dir is $(LIBDIR)
+	$(eval LDLINUXDIR := $(shell dirname $(LD_LINUX) | xargs -n1 | sort -u | xargs))
+	@echo res of ld linux dir is $(LDLINUXDIR)
+else
+	$(eval LIBDIR := $(LIBDIR))
+	$(eval LDLINUXDIR := $(LIBDIR))
+endif
+	$(foreach tLIBS,$(LIBS), \
+	$(eval DIRfetch := lib) \
+	$(eval LIB:=$(shell find -H $(LIBDIR) -name $(tLIBS) | head -n 1)) \
+	$(if $(filter x$(LIB),x),$(shell echo Fetch Lib: $(tLIBS) not found in $(LIBDIR) - doing nothing),$(shell cp $(LIB) $(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/$(DIRfetch))) \
+	)
+
+	mkdir -p _install$(shell dirname $(LD_LINUX) | xargs -n1 | sort -u | xargs)
+	$(foreach tLDLINUX,$(LD_LINUX), \
+	$(eval LIB:=$(shell find -H $(LDLINUXDIR) -name  $(notdir $(tLDLINUX)) | head -n 1)) \
+	$(if $(filter "x$(LIB),x"),$(shell echo Fetch Lib: $(tLDLINUX) not found in $(LDLINUXDIR) - doing nothing),$(shell cp $(LIB) $(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/$(LDLINUXDIR))) \
+	)
+	@echo "	done get_exec_libs_root"
 	@echo "	fetching libs... "
-	$(eval LIB=$(shell find -H $(LIBDIR) -name libnss_compat.so.* | head -n 1))
-ifneq (x$(LIB),x)
-	cp $(LIB) bb_build-$(BBVER)$(EXTRANAME)/_install/lib/
-else
-	@echo Fetch Lib: libnss_compat.so.* not found in $(LIBDIR)
-endif
-	$(eval LIB=$(shell find -H $(LIBDIR) -name libnss_files.so.* | head -n 1))
-ifneq (x$(LIB),x)
-	cp $(LIB) bb_build-$(BBVER)$(EXTRANAME)/_install/lib/
-else
-	@echo Fetch Lib: libnss_files.so.* not found in $(LIBDIR)
-endif
-	@echo "done!"
+
+	$(eval LIB:=$(shell find -H $(LIBDIR) -name libnss_compat.so.* | head -n 1)) 
+	$(if $(filter x$(LIB),x),$(shell echo Fetch Lib: libnss_compat.so.* not found in $(LIBDIR) - doing nothing),$(shell cp $(LIB) $(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/lib/)) 
+
+	$(eval LIB:=$(shell find -H $(LIBDIR) -name libnss_files.so.* | head -n 1)) 
+	$(if $(filter x$(LIB),x),$(shell echo Fetch Lib: libnss_files.so.* not found in $(LIBDIR) - doing nothing),$(shell cp $(LIB) $(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/lib/)) 
 endif
