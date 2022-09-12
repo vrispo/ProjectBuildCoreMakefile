@@ -14,11 +14,9 @@ $(if $(filter $(found),"NO"),$(eval L:=$(L) $(shell "$(MCROSS)"$(CC) -print-file
 )
 endef
 
-installsudo:
-	@echo "	Installing sudo"
-	cp src/sudo $(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/bin
+all: installsudo
 
-	test -e $(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo && echo "yes"
+installsudo: bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo
 	"$(MCROSS)"strip $(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo
 
 ifeq (x$(GLIBC_LIB),x)
@@ -35,7 +33,7 @@ endif
 
 ifneq (x$(ARCH),xmusl)
 	@echo "	get exec libs root $(GLIBC_LIB)"
-#$(call get_exec_libs_root,$(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo,$(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install,$(LIBDIR))
+
 	$(call do_ldd,$(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo)
 	@echo result of do_ldd is $(L)
 	$(eval res:="")
@@ -44,7 +42,6 @@ ifneq (x$(ARCH),xmusl)
 	$(foreach K,$(res), $(eval LIBS += $(shell echo $(K) | grep -v vdso | grep -v ld-linux)))
 	@echo libs is $(LIBS)
 
-#$(call do_ldd,_install/bin/busybox) il risultato è sempre in L che non è più stata modificata
 	@echo result of do_ldd is $(L)
 	$(eval res:="")
 	$(foreach K,$(L),$(eval res += $(K)))
@@ -82,3 +79,9 @@ endif
 	$(eval LIB:=$(shell find -H $(LIBDIR) -name libnss_files.so.* | head -n 1)) 
 	$(if $(filter $(LIB),''),echo Fetch Lib: libnss_files.so.* not found in $(LIBDIR) - doing nothing,cp $(LIB) $(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/lib/) 
 endif
+
+bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo:
+	@echo "	Installing sudo"
+	cp src/sudo $(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/bin
+
+	test -e $(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo && echo "yes"

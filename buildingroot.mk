@@ -37,7 +37,7 @@ else
 	@echo result of do_ldd is $(L)
 	$(foreach K,$(L),$(eval res += $(shell basename $(K))))
 	@echo result of foreach is $(res)
-	$(foreach K,$(res), $(eval LIBS += $(shell echo $(K) | grep -v vdso | grep -v ld-linux)))
+	$(eval LIBS := $(shell echo $(res) | grep -v vdso | grep -v ld-linux))
 	@echo libs is $(LIBS)
 
 #$(call do_ldd,_install/bin/busybox) il risultato è sempre in L che non è più stata modificata
@@ -45,7 +45,7 @@ else
 	$(eval res:="")
 	$(foreach K,$(L),$(eval res += $(K)))
 	@echo result of foreach is $(res)
-	$(foreach K,$(res), $(eval LD_LINUX += $(shell echo $(K) | grep ld-linux)))
+	$(eval LD_LINUX += $(shell echo $(res) | grep ld-linux))
 	@echo ld_linux is $(LD_LINUX)
 ifeq (x$(GLIBC_LIB),x)
 #$(eval D=$(shell $(call do_ldd2,$(1)) | grep libc.s | xargs dirname))
@@ -67,7 +67,7 @@ endif
 	mkdir -p _install$(shell dirname $(LD_LINUX) | xargs -n1 | sort -u | xargs)
 	$(foreach tLDLINUX,$(LD_LINUX), \
 	$(eval LIB:=$(shell find -H $(LDLINUXDIR) -name  $(notdir $(tLDLINUX)) | head -n 1)) \
-	$(if $(filter $(LIB),''),echo Fetch Lib: $(tLDLINUX) not found in $(LDLINUXDIR) - doing nothing,cp $(LIB) _install/$(LDLINUXDIR)) \
+	$(if $(filter $(LIB),''),echo Fetch Lib: $(tLDLINUX) not found in $(LDLINUXDIR) - doing nothing,cp $(LIB) _install/lib ;) \
 	)
 	@echo "	done get_exec_libs_root"
 
