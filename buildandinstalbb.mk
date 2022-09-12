@@ -1,4 +1,4 @@
-DIR = ../../Progetto
+DIR := ../$(S_DIR)
 CONFIG_FILE := $(DIR)/Configs/config-busybox-2
 
 all:

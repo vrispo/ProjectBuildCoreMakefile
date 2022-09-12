@@ -50,28 +50,28 @@ CROSS :="--host=$(PREFIX)"
 ARCH :=$(shell $(PREFIX)-gcc- -dumpmachine | cut -d '-' -f l)
 endif
 
-export CC , EXTRANAME , DIR_NAME , MCROSS , SUDOVER , BBVER , CPUS
+export CC , EXTRANAME , DIR_NAME , MCROSS , SUDOVER , BBVER , CPUS , S_DIR
 
 $(DIR_NAME)/$(FILE_NAME).gz: bb_build-$(BBVER)$(EXTRANAME)/_install/lib/libnss_*
-	cd bb_build-$(BBVER)$(EXTRANAME)/_install && $(MAKE) -f ../../../Progetto/finalfixups.mk
+	cd bb_build-$(BBVER)$(EXTRANAME)/_install && $(MAKE) -f ../../$(S_DIR)/finalfixups.mk
 	@echo "	done final fixups!"
 	@echo -n "MkInitRAMFs bb_build-$(BBVER)$(EXTRANAME)/_install $(DIR_NAME)/$(FILE_NAME)"
 	cd bb_build-$(BBVER)$(EXTRANAME)/_install ; \
 	find . | cpio -o -H newc | gzip > $(DIR_NAME)/$(FILE_NAME).gz
 
 bb_build-$(BBVER)$(EXTRANAME)/_install/lib/libnss_*:bb_build-$(BBVER)$(EXTRANAME)/_install/lib sudo_build-$(SUDOVER)$(EXTRANAME)
-	cd sudo_build-$(SUDOVER)$(EXTRANAME) && $(MAKE) -f ../../Progetto/installsudo.mk 
+	cd sudo_build-$(SUDOVER)$(EXTRANAME) && $(MAKE) -f ../$(S_DIR)/installsudo.mk 
 	@echo "	done!"
 
 bb_build-$(BBVER)$(EXTRANAME)/_install/lib: bb_build-$(BBVER)$(EXTRANAME)/_install
-	cd bb_build-$(BBVER)$(EXTRANAME) && $(MAKE) -f ../../Progetto/buildingroot.mk
+	cd bb_build-$(BBVER)$(EXTRANAME) && $(MAKE) -f ../$(S_DIR)/buildingroot.mk
 	@echo "	done buildingroot!"
 
 bb_build-$(BBVER)$(EXTRANAME)/_install: busybox-$(BBVER)
 	@echo "	Building BusyBox"
 	$(eval BUILDDIR := bb_build-$(BBVER)$(EXTRANAME))
 	mkdir -p $(BUILDDIR)
-	cd bb_build-$(BBVER)$(EXTRANAME) && $(MAKE) -f ../../Progetto/buildandinstalbb.mk
+	cd bb_build-$(BBVER)$(EXTRANAME) && $(MAKE) -f ../$(S_DIR)/buildandinstalbb.mk
 	@echo "	done Install BB!"	
 
 busybox-$(BBVER): busybox-$(BBVER).tar.bz2
@@ -96,7 +96,7 @@ sudo_build-$(SUDOVER)$(EXTRANAME): sudo-$(SUDOVER)
 	@echo Building sudo
 	$(eval BUILDDIRSUDO := sudo_build-$(SUDOVER)$(EXTRANAME))
 	mkdir -p $(BUILDDIRSUDO)
-	cd sudo_build-$(SUDOVER)$(EXTRANAME) && $(MAKE) -f ../../Progetto/buildsudo.mk
+	cd sudo_build-$(SUDOVER)$(EXTRANAME) && $(MAKE) -f ../$(S_DIR)/buildsudo.mk
 	@echo "	done Build SUDO!"	
 
 sudo-$(SUDOVER): sudo-$(SUDOVER).tar.gz

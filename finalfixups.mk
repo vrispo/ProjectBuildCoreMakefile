@@ -1,4 +1,4 @@
-DIR = ../../../Progetto
+DIR := ../../$(S_DIR)
 
 all:
 ifneq ("$(wildcard lib64)","")

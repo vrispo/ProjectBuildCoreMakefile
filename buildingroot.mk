@@ -1,4 +1,4 @@
-DIR = ../../Progetto
+DIR = ../$(S_DIR)
 
 define search_file
 $(eval found:="NO")
