@@ -60,15 +60,14 @@ else
 	$(eval LDLINUXDIR := $(GLIBC_LIB))
 endif
 	$(foreach tLIBS,$(LIBS), \
-	$(eval DIRfetch := lib) \
 	$(eval LIB:=$(shell find -H $(LIBDIR) -name $(tLIBS) | head -n 1)) \
-	$(if $(filter x$(LIB),x),$(shell echo Fetch Lib: $(tLIBS) not found in $(LIBDIR) - doing nothing),$(shell cp $(LIB) _install/$(DIRfetch))) \
+	$(if $(filter $(LIB),''),echo Fetch Lib: $(tLIBS) not found in $(LIBDIR) - doing nothing,cp $(LIB) _install/lib/ ;) \
 	)
 
 	mkdir -p _install$(shell dirname $(LD_LINUX) | xargs -n1 | sort -u | xargs)
 	$(foreach tLDLINUX,$(LD_LINUX), \
 	$(eval LIB:=$(shell find -H $(LDLINUXDIR) -name  $(notdir $(tLDLINUX)) | head -n 1)) \
-	$(if $(filter "x$(LIB),x"),$(shell echo Fetch Lib: $(tLDLINUX) not found in $(LDLINUXDIR) - doing nothing),$(shell cp $(LIB) _install/$(LDLINUXDIR))) \
+	$(if $(filter $(LIB),''),echo Fetch Lib: $(tLDLINUX) not found in $(LDLINUXDIR) - doing nothing,cp $(LIB) _install/$(LDLINUXDIR)) \
 	)
 	@echo "	done get_exec_libs_root"
 
@@ -85,13 +84,17 @@ else
 endif
 
 	$(eval LIB:=$(shell find -H $(LIBDIR) -name libpthread.so.0 | head -n 1)) 
-	$(if $(filter x$(LIB),x),$(shell echo Fetch Lib: libpthread.so.0 not found in $(LIBDIR) - doing nothing),$(shell cp $(LIB) _install/lib)) 
+	@echo LIB libpthread.so.0 is $(LIB)
+	$(if $(filter $(LIB),''),echo Fetch Lib: libpthread.so.0 not found in $(LIBDIR) - doing nothing,cp $(LIB) _install/lib)
 
-	$(eval LIB:=$(shell find -H $(LIBDIR) -name librt.so.1 | head -n 1)) 
-	$(if $(filter x$(LIB),x),$(shell echo Fetch Lib: librt.so.1 not found in $(LIBDIR) - doing nothing),$(shell cp $(LIB) _install/lib)) 
+
+	$(eval LIB:=$(shell find -H $(LIBDIR) -name librt.so.1 | head -n 1))
+	@echo LIB librt.so.1 is $(LIB)
+	$(if $(filter $(LIB),''),echo Fetch Lib: librt.so.1 not found in $(LIBDIR) - doing nothing,cp $(LIB) _install/lib)
 
 	$(eval LIB:=$(shell find -H $(LIBDIR) -name libdl.so.2 | head -n 1)) 
-	$(if $(filter x$(LIB),x),$(shell echo Fetch Lib: libdl.so.2 not found in $(LIBDIR) - doing nothing),$(shell cp $(LIB) _install/lib)) 
+	@echo LIB libdl.so.2 is $(LIB)
+	$(if $(filter $(LIB),''),echo Fetch Lib: libdl.so.2 not found in $(LIBDIR) - doing nothing,cp $(LIB) _install/lib)	
 
 	$(eval LIBGCCDIR := $(shell "$(MCROSS)"$(CC) -print-libgcc-file-name))
 	$(eval LIBGCCDIR := $(shell dirname $(LIBGCCDIR)))

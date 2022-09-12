@@ -1,89 +1,78 @@
-BBVER = 1.29.3
-GLIBCVER = 2.28
-KVER = 4.28.16
-SUDOVER = 1.8.26
-SUDO_PATH = dist#sudover x.y.z se y = 8 sudo_path = dist else =dist/old
+BBVER := 1.29.3
+GLIBCVER := 2.28
+KVER := 4.28.16
+SUDOVER := 1.8.26
+SUDO_PATH := dist#sudover x.y.z se y = 8 sudo_path = dist else =dist/old
 FILE_NAME ?= minimal_core
 DIR_NAME := $(shell pwd)
 S_DIR ?= ../Progetto
-CONFIG_FILE := $(S_DIR)/Configs/config-busybox-2
-CC = gcc
+CC := gcc
 
-CPUS = $(shell grep processor /proc/cpuinfo | wc -l)
+CPUS := $(shell grep processor /proc/cpuinfo | wc -l)
+ifneq ($(CPUS),1) 
+CPUS := $(shell expr $(CPUS) - 1)
+endif
 
 ifeq (x$(ARCH),xx86_64)
-EXTRANAME = 64
-CFLAGS = -m64
-LDFLAGS = -m64
+EXTRANAME := 64
+CFLAGS := -m64
+LDFLAGS := -m64
 	ifneq ($(arch),x86_64)
-CROSS ="--host=x86_64-unknown-linux-gnu"
+CROSS :="--host=x86_64-unknown-linux-gnu"
 	endif
 endif
 
 ifeq (x$(ARCH),xx86)
-EXTRANAME = 32
-CFLAGS = -m32
-LDFLAGS = -m32
+EXTRANAME := 32
+CFLAGS := -m32
+LDFLAGS := -m32
 	ifneq ($(arch),x86_64)
-CROSS = "--host=i686-unknown-linux-gnu"
+CROSS := "--host=i686-unknown-linux-gnu"
 	endif
 endif
 
 ifeq (x$(ARCH),xmusl)
-EXTRANAME = musl
+EXTRANAME := musl
 	ifeq ($(arch),x86_64)
-CROSS ="--host=x86_64-unknown-linux-gnu"
-MARCH ="x86_64-linux-musl"
+CROSS :="--host=x86_64-unknown-linux-gnu"
+MARCH :="x86_64-linux-musl"
 	else
-CROSS = "--host=i686-unknown-linux-gnu"
-MARCH = "i686-linux-musl"
+CROSS := "--host=i686-unknown-linux-gnu"
+MARCH := "i686-linux-musl"
 	endif
-MCROSS =$(MUSL)/bin/$(MARCH)-
+MCROSS :=$(MUSL)/bin/$(MARCH)-
 endif
 
 #Adjust the cross-compilation variables if exists
 ifneq (x$(PREFIX),x)
-MCROSS =$(PREFIX)-
-CROSS ="--host=$(PREFIX)"
-ARCH =$(shell $(PREFIX)-gcc- -dumpmachine | cut -d '-' -f l)
+MCROSS :=$(PREFIX)-
+CROSS :="--host=$(PREFIX)"
+ARCH :=$(shell $(PREFIX)-gcc- -dumpmachine | cut -d '-' -f l)
 endif
 
-export CC , EXTRANAME , DIR_NAME , MCROSS , SUDOVER , BBVER
+export CC , EXTRANAME , DIR_NAME , MCROSS , SUDOVER , BBVER , CPUS
 
-$(DIR_NAME)/$(FILE_NAME).gz: bb_build-$(BBVER)$(EXTRANAME)/_install/lib  bb_build-$(BBVER)$(EXTRANAME)/_install/lib/libnss_*
+$(DIR_NAME)/$(FILE_NAME).gz: bb_build-$(BBVER)$(EXTRANAME)/_install/lib/libnss_*
 	cd bb_build-$(BBVER)$(EXTRANAME)/_install && $(MAKE) -f ../../../Progetto/finalfixups.mk
 	@echo "	done final fixups!"
 	@echo -n "MkInitRAMFs bb_build-$(BBVER)$(EXTRANAME)/_install $(DIR_NAME)/$(FILE_NAME)"
 	cd bb_build-$(BBVER)$(EXTRANAME)/_install ; \
 	find . | cpio -o -H newc | gzip > $(DIR_NAME)/$(FILE_NAME).gz
 
+bb_build-$(BBVER)$(EXTRANAME)/_install/lib/libnss_*:bb_build-$(BBVER)$(EXTRANAME)/_install/lib sudo_build-$(SUDOVER)$(EXTRANAME)
+	cd sudo_build-$(SUDOVER)$(EXTRANAME) && $(MAKE) -f ../../Progetto/installsudo.mk 
+	@echo "	done!"
+
 bb_build-$(BBVER)$(EXTRANAME)/_install/lib: bb_build-$(BBVER)$(EXTRANAME)/_install
 	cd bb_build-$(BBVER)$(EXTRANAME) && $(MAKE) -f ../../Progetto/buildingroot.mk
 	@echo "	done buildingroot!"
 
-bb_build-$(BBVER)$(EXTRANAME)/_install: bb_build-$(BBVER)$(EXTRANAME)
-	@echo "	Installing BusyBox"
-	rm -rf bb_build-$(BBVER)$(EXTRANAME)/_install
-	cd $(BUILDDIR) ;\
-	make install V=1     CC="$(MCROSS)$(CC)" CROSS_COMPILE=$(MCROSS)                     > install_bb.log 2> install_bb.err
-	@echo "	done!"
-
-bb_build-$(BBVER)$(EXTRANAME): busybox-$(BBVER) 
+bb_build-$(BBVER)$(EXTRANAME)/_install: busybox-$(BBVER)
 	@echo "	Building BusyBox"
 	$(eval BUILDDIR := bb_build-$(BBVER)$(EXTRANAME))
 	mkdir -p $(BUILDDIR)
-	@echo -n "	configuring... "
-	cd $(BUILDDIR) ;\
-	cp ../$(CONFIG_FILE) .config;\
-	make -C $(shell pwd)/busybox-$(BBVER) CC="$(MCROSS)$(CC)" CROSS_COMPILE=$(MCROSS) O=$(shell pwd)/$(BUILDDIR) oldconfig  > config_bb.log 2> config_bb.err 
-	@echo "done!"
-	@echo -n "	compiling..."
-ifneq ($(CPUS),1) 
-	$(eval CPUS = $(shell expr $(CPUS) - 1))
-endif 	
-	cd $(BUILDDIR) ;\
-	make -j $(CPUS) V=1       CC="$(MCROSS)$(CC)" CROSS_COMPILE=$(MCROSS)                     > build_bb.log  2> build_bb.err
-	@echo "	done!"
+	cd bb_build-$(BBVER)$(EXTRANAME) && $(MAKE) -f ../../Progetto/buildandinstalbb.mk
+	@echo "	done Install BB!"	
 
 busybox-$(BBVER): busybox-$(BBVER).tar.bz2
 	@echo "	uncompressing busybox-$(BBVER).tar.bz2"
@@ -103,22 +92,12 @@ else
 	@echo "	done!"
 endif	
 
-bb_build-$(BBVER)$(EXTRANAME)/_install/lib/libnss_*: sudo_build-$(SUDOVER)$(EXTRANAME) bb_build-$(BBVER)$(EXTRANAME)/_install/lib
-	cd sudo_build-$(SUDOVER)$(EXTRANAME) && $(MAKE) -f ../../Progetto/installsudo.mk BBBUILD="../bb_build-$(BBVER)$(EXTRANAME)"
-	@echo "	done!"
-
-sudo_build-$(SUDOVER)$(EXTRANAME): sudo-$(SUDOVER) #init_config
+sudo_build-$(SUDOVER)$(EXTRANAME): sudo-$(SUDOVER) 
 	@echo Building sudo
 	$(eval BUILDDIRSUDO := sudo_build-$(SUDOVER)$(EXTRANAME))
 	mkdir -p $(BUILDDIRSUDO)
-	@echo -n "	configuring... "
-	cd $(BUILDDIRSUDO) ; \
-	CC=$(MCROSS)"$(CC)" ../sudo-$(SUDOVER)/configure --prefix=/ --disable-authentication --disable-shadow --disable-pam-session --disable-zlib --without-lecture --without-sendmail --without-umask --without-interfaces --without-pam --enable-static --disable-shared --enable-static-sudoers $(CROSS) > config_sudo.log 2> config_sudo.err
-	@echo "done!"
-	@echo -n "    compiling... "
-	cd $(BUILDDIRSUDO) ; \
-	make -j $(CPUS) CC=$(MCROSS)"$(CC)"                 > build_sudo.log 2> build_sudo.err
-	@echo "done!"
+	cd sudo_build-$(SUDOVER)$(EXTRANAME) && $(MAKE) -f ../../Progetto/buildsudo.mk
+	@echo "	done Build SUDO!"	
 
 sudo-$(SUDOVER): sudo-$(SUDOVER).tar.gz
 	@echo "	uncompressing sudo-$(SUDOVER).tar.gz"

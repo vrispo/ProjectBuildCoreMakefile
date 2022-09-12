@@ -17,7 +17,9 @@ endef
 installsudo:
 	@echo "	Installing sudo"
 	cp src/sudo $(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/bin
-	$(shell "$(MCROSS)"strip $(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo)
+
+	test -e $(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo && echo "yes"
+	"$(MCROSS)"strip $(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo
 
 ifeq (x$(GLIBC_LIB),x)
 	$(call do_ldd,$(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo)
@@ -62,22 +64,21 @@ else
 	$(eval LDLINUXDIR := $(LIBDIR))
 endif
 	$(foreach tLIBS,$(LIBS), \
-	$(eval DIRfetch := lib) \
 	$(eval LIB:=$(shell find -H $(LIBDIR) -name $(tLIBS) | head -n 1)) \
-	$(if $(filter x$(LIB),x),$(shell echo Fetch Lib: $(tLIBS) not found in $(LIBDIR) - doing nothing),$(shell cp $(LIB) $(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/$(DIRfetch))) \
+	$(if $(filter $(LIB),''),echo Fetch Lib: $(tLIBS) not found in $(LIBDIR) - doing nothing,cp $(LIB) $(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/lib ;) \
 	)
 
 	mkdir -p _install$(shell dirname $(LD_LINUX) | xargs -n1 | sort -u | xargs)
 	$(foreach tLDLINUX,$(LD_LINUX), \
 	$(eval LIB:=$(shell find -H $(LDLINUXDIR) -name  $(notdir $(tLDLINUX)) | head -n 1)) \
-	$(if $(filter "x$(LIB),x"),$(shell echo Fetch Lib: $(tLDLINUX) not found in $(LDLINUXDIR) - doing nothing),$(shell cp $(LIB) $(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/$(LDLINUXDIR))) \
+	$(if $(filter $(LIB),''),echo Fetch Lib: $(tLDLINUX) not found in $(LDLINUXDIR) - doing nothing,cp $(LIB) $(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/$(LDLINUXDIR)) \
 	)
 	@echo "	done get_exec_libs_root"
 	@echo "	fetching libs... "
 
 	$(eval LIB:=$(shell find -H $(LIBDIR) -name libnss_compat.so.* | head -n 1)) 
-	$(if $(filter x$(LIB),x),$(shell echo Fetch Lib: libnss_compat.so.* not found in $(LIBDIR) - doing nothing),$(shell cp $(LIB) $(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/lib/)) 
+	$(if $(filter $(LIB),''),echo Fetch Lib: libnss_compat.so.* not found in $(LIBDIR) - doing nothing,cp $(LIB) $(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/lib/) 
 
 	$(eval LIB:=$(shell find -H $(LIBDIR) -name libnss_files.so.* | head -n 1)) 
-	$(if $(filter x$(LIB),x),$(shell echo Fetch Lib: libnss_files.so.* not found in $(LIBDIR) - doing nothing),$(shell cp $(LIB) $(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/lib/)) 
+	$(if $(filter $(LIB),''),echo Fetch Lib: libnss_files.so.* not found in $(LIBDIR) - doing nothing,cp $(LIB) $(DIR_NAME)/bb_build-$(BBVER)$(EXTRANAME)/_install/lib/) 
 endif
