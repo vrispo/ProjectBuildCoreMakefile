@@ -1,4 +1,11 @@
 DIR = ../$(S_DIR)
+L_cmd := $(shell echo $$LANG)
+L_cmd := $(shell echo $(L_cmd) | cut -d '_' -f 1)
+ifeq ($(L_cmd),it)
+L_cmd := condivisa
+else
+L_cmd := Shared
+endif
 
 define search_file
 $(eval found:="NO")
@@ -7,7 +14,7 @@ endef
 
 define do_ldd
 $(eval L:=$(2))
-$(eval FILES := $(shell readelf -d $(1) | grep "Libreria condivisa" | cut -d '[' -f 2 | cut -d ']' -f 1))
+$(eval FILES := $(shell readelf -d $(1) | grep $(L_cmd) | cut -d '[' -f 2 | cut -d ']' -f 1))
 $(foreach F, $(FILES),\
 $(call search_file,$(L),$(shell "$(MCROSS)"$(CC) -print-file-name=$(F))) \
 $(if $(filter $(found),"NO"),$(eval L:=$(L) $(shell "$(MCROSS)"$(CC) -print-file-name=$(F))) $(call do_ldd,$(shell "$(MCROSS)"$(CC) -print-file-name=$(F)),$(L)) ) \
@@ -17,6 +24,7 @@ endef
 buildingroot: 
 	@echo "	Building root"
 	@echo CC is $(CC)
+	@echo L_cmd is $(L_cmd)
 	cp -a $(DIR)/etc _install/etc
 	cp $(DIR)/sbin/* _install/sbin
 	rm -f _install/linuxrc
