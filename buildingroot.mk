@@ -32,7 +32,7 @@ buildingroot:
 	ln -s /bin/busybox _install/init 
 
 	mkdir -p _install/proc
-	rm -f _install/lib && mkdir -p _install/lib
+	mkdir -p _install/lib
 ifeq (x$(ARCH) , xmusl)
 	@echo -n "	get musl in root... "
 	cp -a $(MUSL)/$(MARCH)/lib/ld-musl-x86_64.so.1 _install/lib

@@ -52,19 +52,19 @@ endif
 
 export CC , EXTRANAME , DIR_NAME , MCROSS , SUDOVER , BBVER , CPUS , S_DIR
 
-$(DIR_NAME)/$(FILE_NAME).gz: bb_build-$(BBVER)$(EXTRANAME)/_install/lib/libnss_*
+$(FILE_NAME).gz: bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo
 	cd bb_build-$(BBVER)$(EXTRANAME)/_install && $(MAKE) -f ../../$(S_DIR)/finalfixups.mk
 	@echo "	done final fixups!"
 	@echo -n "MkInitRAMFs bb_build-$(BBVER)$(EXTRANAME)/_install $(DIR_NAME)/$(FILE_NAME)"
 	cd bb_build-$(BBVER)$(EXTRANAME)/_install ; \
 	find . | cpio -o -H newc | gzip > $(DIR_NAME)/$(FILE_NAME).gz
 
-bb_build-$(BBVER)$(EXTRANAME)/_install/lib/libnss_*:bb_build-$(BBVER)$(EXTRANAME)/_install/lib sudo_build-$(SUDOVER)$(EXTRANAME)
+bb_build-$(BBVER)$(EXTRANAME)/_install/bin/sudo:bb_build-$(BBVER)$(EXTRANAME)/_install/lib/libgcc_s.so.1 sudo_build-$(SUDOVER)$(EXTRANAME)
 	cd sudo_build-$(SUDOVER)$(EXTRANAME) && $(MAKE) -f ../$(S_DIR)/installsudo.mk 
 	@echo "	done!"
 
-bb_build-$(BBVER)$(EXTRANAME)/_install/lib: bb_build-$(BBVER)$(EXTRANAME)/_install
-	cd bb_build-$(BBVER)$(EXTRANAME) && $(MAKE) -f ../$(S_DIR)/buildingroot.mk
+bb_build-$(BBVER)$(EXTRANAME)/_install/lib/libgcc_s.so.1: bb_build-$(BBVER)$(EXTRANAME)/_install	
+	cd bb_build-$(BBVER)$(EXTRANAME) && $(MAKE) -f ../$(S_DIR)/buildingroot.mk	
 	@echo "	done buildingroot!"
 
 bb_build-$(BBVER)$(EXTRANAME)/_install: busybox-$(BBVER)
